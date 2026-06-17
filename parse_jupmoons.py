@@ -22,6 +22,9 @@
 # SOFTWARE.
 
 import csv
+import statistics
+import matplotlib.pyplot as plt
+from scipy.stats import gaussian_kde
 
 MONTH=0
 DAY=1
@@ -98,6 +101,49 @@ for ev_enum in enumerate(event_data):
     else:
         print("Warning: no match found for: ", ev)
 
+def time_diff(ev1, ev2):
+    t1 = int(ev1[HOUR]) * 60 + int(ev1[MINUTE])
+    t2 = int(ev2[HOUR]) * 60 + int(ev2[MINUTE])
+    if t2 < t1:
+        return 1440 + t2 - t1
+    return t2 - t1
+
+# *********************************************************
+# Statistics for the duration of transit/occultations
+# *********************************************************
+pairs_dict = dict()
+satellites = ['I', 'II', 'III', 'IV']
+for sat in satellites:
+    pairs_dict[sat] = []
+
 for ev_pair in paired_events:
-    print(ev_pair)
+    pairs_dict[ev_pair[0][SATELLITE]].append(time_diff(ev_pair[0], ev_pair[1]))
+
+for sat in satellites:
+    if pairs_dict[sat]:
+        m = statistics.mean(pairs_dict[sat])
+        var = statistics.variance(pairs_dict[sat], m)
+        print(f"Sat {sat} mean/variance of the event durations: {m:6.1f}/{var:6.2f} minutes.")
+
+
+f1_hat = gaussian_kde(pairs_dict['I'])
+f2_hat = gaussian_kde(pairs_dict['II'])
+f3_hat = gaussian_kde(pairs_dict['III'])
+f4_hat = gaussian_kde(pairs_dict['IV'])
+xarr = [i/2 for i in range(200, 800)]
+y1arr = [f1_hat(x) for x in xarr]
+y2arr = [f2_hat(x) for x in xarr]
+y3arr = [f3_hat(x) for x in xarr]
+y4arr = [f4_hat(x) for x in xarr]
+
+def plot_gaussian_fit():
+    plt.plot(xarr, y1arr)
+    plt.plot(xarr, y2arr)
+    plt.plot(xarr, y3arr)
+    plt.plot(xarr, y4arr)
+    plt.xlabel("Eclipse/Occult. duration (mins)")
+    plt.ylabel("Frequency")
+    plt.savefig("parse_jupmoons_plot.png", dpi=300)
+
+plot_gaussian_fit
 
